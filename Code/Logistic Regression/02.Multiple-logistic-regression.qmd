@@ -1,0 +1,210 @@
+---
+title: "02. Multiple logistic regression."
+format: html
+editor: visual
+---
+
+## Multiple logistic regression
+
+We employ multiple logistic regression when we have a binary response variable and more than one predictor variables.
+
+We are going to set things up and use the same data that we did for the simple example of logistic regression in `01.Intro-logistic-regression.qmd`.
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(broom) #for tidying model results
+library(data.table) #for getting confidence intervals
+library(bestglm) #for best subsets with glm models
+library(MASS) #for step AIC
+library(glmulti) #for another approach to model selection
+library(oddsratio) #converts log odds to odds ratios
+library(visreg) #for visualizing regression output
+library(here)
+```
+
+Read in the data
+
+```{r}
+plants <- read.csv(here("Data/regression/plant_pollination.csv"))
+```
+
+Again, these are imaginary data for a species of plant that produces flowers to attract pollinators. If the plants are pollinated, then they produce seeds via sexual reproduction. If the plants fail to be pollinated, they produce seeds via "selfing" which show much less genetic diversity. Researchers were interested in trying to predict what factors influence the likelihood that a plant is pollinated or not.
+
+### Make a binary response variable
+
+R can run logisti regession on a factor variable or on a 0/1 numeric variable.
+
+We'll set this up the same way we did in the last file.
+
+Let's code pollination status as 1 = yes and 0 = no.
+
+```{r}
+levels(plants$pollination_status)
+yes <- which(plants$pollination_status == "yes")
+plants$pollination_code <- NA
+plants$pollination_code[yes] <- 1
+no <- which(plants$pollination_status == "no")
+plants$pollination_code[no] <- 0
+```
+
+### Plot some data
+
+Let's look at how a number of different predictors seem to relate to the response variable:
+
+```{r}
+ggplot(plants, aes(num_infloresences, pollination_status))+
+  geom_point()
+
+ggplot(plants, aes(avg_flowers_per_inflor, pollination_status))+
+  geom_point()
+
+ggplot(plants, aes(plant_height_cm, pollination_status))+
+  geom_point()
+
+ggplot(plants, aes(dist_nearest_flowering_plant_m, pollination_status))+
+  geom_point()
+
+```
+
+From these plots, it looks like both number of infloresences and average number of flowers per infloresence may impact wither a plant is visited by a pollinator. It looks as though plant height and distance to the nearest flowering plant may not.
+
+### Run best subsets on our data
+
+We need to reformat our data so that we end up with a response variable called 'y' and a data frame that only includes the possible predictors - no extraneous data should be in the dataframe.
+
+Then we reorder the columns in the data frame so that the y variable is the right-most column.
+
+For our example, all we need to do is rename our pollination_code variable to 'y' and get rid of the pollination_status column.
+
+```{r}
+preds <- plants[,2:6]
+preds <- preds %>% rename("y" = "pollination_code")
+```
+
+Now we can use the `bestglm()` function
+
+```{r}
+best_logistic <- bestglm(Xy = preds, family = binomial, IC = "AIC")
+```
+
+Now show the top models
+
+```{r}
+best_logistic$BestModels
+```
+
+We see here that models 1, 2 and 3 are all within 2 AIC units of each other.
+
+Let's see what the package selected as the best model
+
+```{r}
+best_logistic$BestModel
+```
+
+This model includes number of infloreseneces, average number of flowers per infloresence and distance to nearest flowering plant in the model.
+
+### Best subsets using glmulti package
+We can also use the glmulti package to run all subset logistic regression
+```{r}
+best_log2 <- glmulti(
+  pollination_code ~ num_infloresences +
+    avg_flowers_per_inflor+plant_height_cm +
+    dist_nearest_flowering_plant_m, 
+    level = 1, #no interaction terms considered
+    data = plants, family = binomial)
+```
+
+Now look at the 5 best models
+```{r}
+best_log2@formulas
+```
+Now look at the result for the best model
+```{r}
+summary(best_log2@objects[[1]])
+summary(best_logistic$BestModel)
+```
+And we get exactly the same result as we did with the other method.
+
+### Stepwise logistic regression with stepAIC
+Like when we used the `stepAIC` function in multiple linear regression, we need to define the full model first
+
+```{r}
+full_log <- glm(y ~ ., family = binomial, data = preds)
+summary(full_log)
+```
+
+Now we begin the stepwise procedure
+```{r}
+step_log <- stepAIC(full_log, trace = T)
+step_log$anova
+```
+We get the same final model again!
+
+### Choose, run, and interpret the best model
+```{r}
+final_log_mod <- glm(pollination_code ~ num_infloresences + avg_flowers_per_inflor + dist_nearest_flowering_plant_m, family = binomial, data = plants)
+
+summary(final_log_mod)
+anova(final_log_mod)
+```
+From our coefficients, we see that a 1 unit increase in the number of infloresences increases the log odds of a plant being visted by a pollinatory by 2.0391, and that a 1 unit increase in the average number of flowers per infloresence increases the log odds of a plant being visited by a pollinator by 3.2006. 
+
+Let's convert our log odds to odds ratios so we can interpret these results more easily.
+
+```{r}
+or_glm(
+  data = plants,
+  model = final_log_mod,
+  incr = list(
+    num_infloresences = 1, 
+    avg_flowers_per_inflor = 1, 
+    dist_nearest_flowering_plant_m = 1))
+```
+We see here that for every increase of 1 flower on the number of infloresences, the odds of a plant being visited by a pollinator increase 7.68 times! And, even more strikingly, the odds of a plant being visited by a pollinator go up 24.548 times for every 1 unit increase in the average number of flowers per infloresence! The effect of the distance to nearest flowering plant is less striking - for every 1 meter increase in the distance to the nearest flowering plant the odds of being visited by a pollinator go up 1.36 times.
+
+### Plot the results
+Again, it is almost impossible to plot these results. However, we can look at a few things:
+
+```{r}
+coefs <- tidy(final_log_mod)
+coefs
+```
+
+Now get confidence intervals
+```{r}
+ci <- data.table(confint(final_log_mod), keep.rownames = "term")
+```
+Now combine coefs and ci
+```{r}
+cidf <- cbind(coefs, ci)
+cidf
+```
+"term" shows up twice, so let's get rid of the second instance
+
+```{r}
+cidf <- cidf[, -6]
+cidf
+
+#change some names
+cidf <-cidf %>% rename(
+  "lower" = "2.5 %",
+  "upper" = "97.5 %"
+)
+
+cidf$term <- as.factor(cidf$term)
+```
+Nowe we can make a plot
+```{r}
+ggplot(cidf, aes(estimate, term))+
+  geom_vline(xintercept = 0, linetype = 2)+
+  geom_point(size = 3)+
+  geom_errorbarh(aes(xmax = lower, xmin = upper), height = 0.2)+
+  theme_bw()
+```
+This plot shows us the confidence intervals for each term in our model - those that do not include zero for the estimate are statistically significant. You can see that, in this example, none of the 3 variables in our model have particularly strong effects. (Remember - the estimate is whether or not the plant is visited by a pollinator)
+
+
+
+
+

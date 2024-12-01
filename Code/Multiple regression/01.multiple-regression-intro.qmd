@@ -1,0 +1,37 @@
+---
+title: "Multiple glm regression"
+format: html
+editor: visual
+---
+
+## Multiple Regression (not logistic)
+
+So far, we've looked at linear regression, a method we use when we are interested in examining the relationship between a continuous response and continuous predictor variable.
+
+Sometimes, we have more than one predictor variable we are interested in, and we can examine the relationship between more than one predictor variable and the response variable. This is called "multiple regression." Note that we can conduct multiple regression with both categorical and continuous predictor variables, but, for standard multiple regression, our response variable should be continuous.
+
+Multiple linear regression makes the same assumptions about our predictor variables as simple bivarite linear regression, which are that:
+
+-   The data have a linear (vs. non-linear) relationship.
+
+-   The data are normally distributed
+
+-   The residual values (remember, these are the measures of the distance between the actual points and the predicted regression line) have constant variance for each level of the predictor variable.
+
+We have been using autoplot to check that we are meeting these assumptions.
+
+For this example, we're going to walk through several steps for our analysis, each detailed in different .qmd files.
+
+-   Step 1 - plot the response variable
+
+-   Step 2 - evaluate predictor variables
+
+-   Step 3 - guesstimate predictors
+
+-   Step 4 - Fit all possible models ("best subsets")
+
+-   Step 5 - Choose the best model
+
+-   Step 6 - Run and interpret the best model
+
+In our example, we will look at data from my own research camera trapping data. We are going to look and see which habitat variables are the best predictors of mammal species diversity.

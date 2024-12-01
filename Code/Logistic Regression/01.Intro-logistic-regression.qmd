@@ -1,0 +1,114 @@
+---
+title: "01. Intro to logistic regression"
+format: html
+editor: visual
+---
+
+## Intro to Logistic Regresion
+
+Thus far, our regression modeling has assumed that our response variable has been continuous.
+
+Sometimes, however, we have a binary response variable.
+
+For example, we might survey a number of sites looking for a particular species of bird, and we would score each site as either the species is present = 1 or the species is absent = 0.
+
+In another case, perhaps we are interested in factors that influence the likelihood that a plant is pollinated. We might have as our response variable two possibilities - Yes or No.
+
+Logistic regression is the method we can use when our response variable is binary.
+
+### Set things up and pull in the data
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(ggfortify)
+library(oddsratio) #converts log odds to odds ratios
+library(visreg) #for visualizing regression output
+library(here)
+```
+
+Let's take a look at some data.
+
+```{r}
+plants <- read.csv(here("Data/regression/plant_pollination.csv"))
+```
+
+These are imaginary data for a species of plant that produces flowers to attract pollinators. If the plants are pollinated, then they produce seeds via sexual reproduction. If the plants fail to be pollinated, they produce seeds via "selfing" which show much less genetic diversity. Researchers were interested in trying to predict what factors influence the likelihood that a plant is pollinated or not.
+
+### Start simple
+
+Let's start by seeing if there is a relationship between the number of infloresences (clusters of flowers) a plant produces and whether or not the plant is visited by a pollinator.
+
+First, we'll plot our data, starting with a histogram of the response variable
+
+```{r}
+ggplot(plants, aes(pollination_status))+
+  geom_histogram(stat = "count")
+```
+
+You can see that we have a binary variable.
+
+Now let's see what the relationship looks like between pollination_status and number of infloresences.
+
+```{r}
+ggplot(plants, aes(num_infloresences, pollination_status))+
+  geom_point()
+```
+
+It looks like plants that are visited by pollinators produce more infloresences than plants that are not visited by pollinators.
+
+Let's code pollination status as 1 = yes and 0 = no.
+
+```{r}
+levels(plants$pollination_status)
+yes <- which(plants$pollination_status == "yes")
+plants$pollination_code <- NA
+plants$pollination_code[yes] <- 1
+no <- which(plants$pollination_status == "no")
+plants$pollination_code[no] <- 0
+```
+
+### Fit the model
+
+To fit a logistic regression model, we need to use a generalized linear model (`glm`), rather than a general linear model (`lm`), so that we can tell R that our response data are binary.
+
+```{r}
+inflor.mod <- glm(pollination_code ~ num_infloresences, family = "binomial", data = plants)
+summary(inflor.mod)
+```
+
+The coefficients in the output indicate the average change in log odds of a plant being visited by a pollinator (yes = 1) with each increase in the number of infloresences that were produced by the plant.
+
+A 1 unit increase in number of infloresences increases the log odds of a species being present by 1.034.
+
+But what the heck does that mean? To figure it out we need to calculate something called "odds ratios" - we'll use the package `oddsratio` to do so.
+
+```{r}
+or_glm(
+  data = plants, 
+  model= inflor.mod, 
+  incr = list(num_infloresences = 1))
+```
+
+Now we see the oddratio for num_infloresences = 2.813 which means that, for every 1 unit increase in number of infloresences, the odds that the plant will be visited by a pollinator is 2.813. It is 2.8 times more likely!
+
+Let's plot it!
+
+```{r}
+ggplot(plants, aes(num_infloresences, pollination_code))+
+  geom_point()+
+  stat_smooth(method = "glm", method.args = list(family = "binomial"), se = F)
+```
+
+We can make a plot based on probabailities if we use the `visreg` package.
+
+```{r}
+visreg(inflor.mod, "num_infloresences", 
+       gg = T, #use ggplot vs. base R
+       scale = "response")+
+  labs(x = "Number of infloresences on plant",
+       y = "Prob. of being visited by pollinator")+
+  theme_bw()
+```
+
+So that's it for a logistic regression! Read the next file, `02.multiple-logistic-regression.qmd` to learn more about how to model the role of multiple predictor variables on a binary response variable. It might help you to also look through the code on multiple linear regression first.
