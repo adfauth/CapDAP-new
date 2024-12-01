@@ -1,0 +1,72 @@
+---
+title: "04. Plotting multiple moving averages"
+format: html
+editor: visual
+---
+
+## Portraying exponenital moving averages in time series data
+
+### Set things up and pull in our carbon dioxide data
+
+We need to add a couple of packages for helping to calculate moving averages.
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(tidyquant) #for moving averages
+library(gridExtra) #to arrange plots
+library(here)
+```
+
+Pull in our carbon dioxide data set
+
+```{r}
+co2 <-read.csv(here("Data/time-series-data/mauna-loa-carbon-dioxide.csv"))
+```
+
+Let's make the date into a date format for plotting
+
+```{r}
+co2$date <- ymd(co2$date)
+```
+
+## Plotting multiple moving averages on the same plot.
+
+It turns out that the `tidyquant` package can calculate more than one type of moving average, and, because it has a moving average `geom` for use in ggplot, we can add different moving averages a layers to the same plot. 
+
+Let's take a look.
+
+We use ggplot to make the basic plot and then add some special geoms from `tidyquant`.
+
+```{r}
+co2_plot <- co2 %>% ggplot(aes(date, carbon.dioxide.ppm))+
+  geom_line(color = "blue", size = 0.75)+ #original data
+  geom_ma(ma_fun = SMA, #specifies simple moving average,
+          n = 365, #specifies number of days
+          color = "red", size = 1)+
+  geom_ma(ma_fun = EMA, #specify type of moving average
+          n = 1095, #specify the number of most recent points for the moving average
+          color = "green", size = 1)+
+  labs(title= "Plotting multiple moving averages", x = "Date", y = "Atmospheric CO2, ppm")+
+  theme_bw()
+co2_plot
+```
+
+We can mabe see the differences better if we zoom in:
+
+```{r}
+co2 %>% filter(Year > 2013) %>% 
+  ggplot(aes(date, carbon.dioxide.ppm))+
+  geom_line(color = "blue", size = 0.75)+ #original data
+  geom_ma(ma_fun = SMA, #specifies simple moving average,
+          n = 365, #specifies number of days
+          color = "red", size = 1)+
+  geom_ma(ma_fun = EMA, #specify type of moving average
+          n = 1095, #specify the number of most recent points for the moving average
+          color = "green", size = 1)+
+  labs(title= "Plotting multiple moving averages", x = "Date", y = "Atmospheric CO2, ppm")+
+  theme_bw()
+```
+
+Notice that the exponential moving average trend line appears somewhat "beneath" the center of the point cloud (where the simple moving average red line is located) - this is due to the difference in how a EMA is calculated.
+

@@ -6,11 +6,11 @@ editor: visual
 
 ## Introduction to time series
 
-There are many cases in biology where data have a time or temporal component. For example, we might measure growth over some period of months, or measure how atmospheric CO~2~ increases over time. Many people also use time series in the analysis of financial markets, where they are interested in patterns of stock price changes over time and in whether they can predict what those prices are likely to do in the future.
+There are many cases in biology where data have a time or temporal component. For example, we might look at how much of the moon is illuminated on any given day of the month (or year), measure growth over some period of months, or measure how atmospheric CO~2~ increases over time. (Many people also use time series in the analysis of financial markets, where they are interested in patterns of stock price changes over time and in whether they can predict what those prices are likely to do in the future).
 
-Let's look at atmospheric CO~2~ levels as an example.
+Let's look at 2 example data sets. One is the percent illumination of the moon every day in 2023, and the other is the measure of atmostpheric carbon dioxide, in parts per million, every day since May 19, 1974.
 
-### Set things up and pull in an example data set
+### Set things up and pull in two example data sets
 
 ```{r}
 rm(list = ls())
@@ -21,38 +21,64 @@ library(here)
 Now grab the sample data
 
 ```{r}
+moon <- read.csv(here("Data/time-series-data/moon_illumination_2023_time_series.csv"))
 co2 <-read.csv(here("Data/time-series-data/mauna-loa-carbon-dioxide.csv"))
-View(co2)
 ```
 
 Let's make the date into a date format for plotting
 
 ```{r}
-co2$decimal.date <- date_decimal(co2$decimal.date)
+co2$date <- ymd(co2$date)
+moon$date <- dmy(moon$date)
 ```
 
-Now plot
+Now plot First moon illumination
 
 ```{r}
-ggplot(co2, aes(decimal.date, carbon.dioxide.ppm))+
+ggplot(moon, aes(date, Illumination))+
   geom_point()+
-  geom_line()
+  geom_line()+
+  theme_bw()
 ```
+
+When you look at these data, you see that the illumination fluctuates from 0 to 100% approximately every month but it never gets less than zero or above 1. There is a clear seasonality to the data, but the overall trend across time does not appear to increase or decrease (that is, the values remain between 0 - 1).
+
+Let's compare that to co2
+
+```{r}
+ggplot(co2, aes(date, carbon.dioxide.ppm))+
+  geom_point(size = 0.1)+
+  geom_line()+
+  theme_bw()
+```
+
+Here we see data that also appear to fluctuate seasonally, but that have an upward-trend over time.
+
+Let's look at a smaller time-frame to get a better look at the seasonal variation. We'll isolate 2 years of data:
+
+```{r}
+ggplot(data = filter(co2, Year > 2022), aes(date, carbon.dioxide.ppm))+
+  geom_point()+
+  theme_bw()
+```
+
+With this view, we see that in both 2023 and 2024, the co2 values are highest in the summer and lowest in about October.
 
 There we go! It looks like we are seeing a couple of things when we look at these data.
 
--   There is an overall upward trend in the amount of atmospheric co2
+-   There is an overall upward trend in the amount of atmospheric co2 but not in the moon illumination.
 
--   There appears to be seasonal variation in the data as well. For example, of we zoom in on the year 2024, we see the following
+-   There appears to be seasonal variation in both the moon data and the co2 data.
 
-```{r}
-ggplot(data = filter(co2, Year == 2024), aes(decimal.date, carbon.dioxide.ppm))+
-  geom_point()+
-  geom_line()
-```
+In many ways, time-series data seem like they could be addressed statistically with linear regression, because we have a continuous response variable and a continuous predictor variable (time). However, we also know that the measurements from day to day have some dependence on one another, which violates a basic assumption of linear regression - that of independence of observations. We can also pretty clearly see from our plots that the data do not fit a nice linear model.
 
-In many ways, this seems like a linear regression, in that we have a continuous response variable and a continuous predictor variable. However, we also know that the measurements from day to day have some dependence on one another, which violates a basic assumption of independence of observations. We can also pretty clearly see from our plots that the data do not fit a nice linear model.
+Another way of saying all of this is to state that the order in which the observations occurs matters in order to see the trend - they depend on time. If you changed the order of the data on the x-axis, the signal, that is the information contained in the temporal aspect of the data, would change.
 
-The order in which the observations occurs matters in order to see the trend - they depend on time. If you changed the order of the data, the signal, that is the information contained in the data, would change.
+Like the other statistics we have been doing, our basic goal with time series is to determine a model that does a fairly good job at describing the pattern or patterns we observe in our temporal data. Another goal is often to see if you can project future values based on past values.
 
-Like the other statistics we have been doing, our basic goal with time series is to determine a model that does a fairly good job at describing the pattern or patterns we observe in our temporal data.
+However, time-series analysis is very complex (we have a whole course on it in our Math/Stat/CS department!).
+
+For that reason, for your capstone projects, if you have time-series data, our focus will be simply on learning to portray a *moving average* for the time series.
+
+See `02.Simple-moving-averaeges-time-series.qmd` to learn more!
+

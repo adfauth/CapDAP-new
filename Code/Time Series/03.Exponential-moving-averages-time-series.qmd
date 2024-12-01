@@ -1,0 +1,97 @@
+---
+title: "03. Exponential Moving averages"
+format: html
+editor: visual
+---
+
+## Portraying exponenital moving averages in time series data
+
+### Set things up and pull in our data set
+
+We need to add a couple of packages for helping to calculate moving averages.
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(tidyquant) #for moving averages
+library(gridExtra) #to arrange plots
+library(here)
+```
+
+Pull in our carbon dioxide data set
+
+```{r}
+co2 <-read.csv(here("Data/time-series-data/mauna-loa-carbon-dioxide.csv"))
+```
+
+Let's make the date into a date format for plotting
+
+```{r}
+co2$date <- ymd(co2$date)
+```
+
+## Reminder: exponential moving average
+
+A moving average is a method for analyzing data points by creating a series of averages of different subsets of the data. Doing so allows you to smooth out some of the noise in the data to better see patterns and trends.
+
+An *exponential moving average* calculates the moving average by giving more weight to recent observations in the data, thus placing more focus on recent changes in the data. 
+
+We are just going to use the CO~2~ data as our example.
+
+## Exponential moving averages
+
+This time, we're going to start with the CO2 data - note that the more recent values have much higher atmostpheric CO2 than older values.
+
+Rather than calculate and plot the time series ourselves, we're going to make use of a package called `tidyquant` to help us create the moving averages and plot them all at once.
+
+We use ggplot to make the basic plot and then add some special geoms from `tidyquant`.
+
+```{r}
+co2_1095 <- co2 %>% ggplot(aes(date, carbon.dioxide.ppm))+
+  geom_line(color = "blue", size = 1)+
+  geom_ma(ma_fun = EMA, #specify type of moving average
+          n = 1095, #specify the number of most recent points for the moving average
+          color = "red", size = 1.2)+
+  labs(title= "EMA 3 year window", x = "Date", y = "Atmospheric CO2, ppm")+
+  theme_bw()
+co2_1095
+```
+Notice that the moving average trend line appears somewhat "beneath" the center of the point cloud - this is due to the difference in how a EMA is calculated.
+
+Just like with SMA, we can tweak the numbers to see what gives us the most meaningful representation of our data.
+
+Try another fit
+
+```{r}
+co2_365 <- co2 %>% ggplot(aes(date, carbon.dioxide.ppm))+
+  geom_line(color = "blue", size = 1)+
+  geom_ma(ma_fun = EMA, #specify type of moving average
+          n = 365, #specify the number of most recent points for the moving average
+          color = "red", size = 1.2)+
+  labs(title= "EMA 1 year window", x = "Date", y = "Atmospheric CO2, ppm")+
+  theme_bw()
+co2_365
+```
+The 365-day moving average does better at representing the center of the trend over time.
+
+Now try a 183 day window
+
+```{r}
+co2_183 <- co2 %>% ggplot(aes(date, carbon.dioxide.ppm))+
+  geom_line(color = "blue", size = 1)+
+  geom_ma(ma_fun = EMA, #specify type of moving average
+          n = 183, #specify the number of most recent points for the moving average
+          color = "red", size = 1.2)+
+  labs(title= "EMA 6 month window", x = "Date", y = "Atmospheric CO2, ppm")+
+  theme_bw()
+co2_183
+```
+You can see that with the 6-month moving window, there is more "noise" present in the moving average line.
+
+Now arrange them to see them all together.
+
+```{r}
+grid.arrange(co2_183, co2_365, co2_1095, nrow = 1)
+```
+
+Which should you use? EMA? SMA? The choice is up to you but it should make sense given your data. For the *best of both worlds*, you can plot both on the same figure. See the next file, `04.Plotting-multiple-MAs.qmd` for details.

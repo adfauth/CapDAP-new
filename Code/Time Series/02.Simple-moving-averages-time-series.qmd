@@ -1,0 +1,279 @@
+---
+title: "02. Simple moving averages"
+format: html
+editor: visual
+---
+
+## Portraying simple moving averages in time series data
+
+### Set things up and pull in our same 2 example data sets
+
+We need to add a couple of packages for helping to calculate moving averages.
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(forecast) #for moving averages
+library(gridExtra) #to arrange plots
+library(zoo) # for moving averages
+library(here)
+```
+
+Pull in our same data sets
+
+```{r}
+moon <- read.csv(here("Data/time-series-data/moon_illumination_2023_time_series.csv"))
+co2 <-read.csv(here("Data/time-series-data/mauna-loa-carbon-dioxide.csv"))
+```
+
+Let's make the date into a date format for plotting
+
+```{r}
+co2$date <- ymd(co2$date)
+moon$date <- dmy(moon$date)
+```
+
+## What is a moving average?
+
+A moving averag is a method for analyzing data points by creating a series of averages of different subsets of the data. Doing so allows you to smooth out some of the noise in the data to better see patterns and trends.
+
+We will look at how to create two types of moving averages:
+
+1.  A *simple moving average* averages together data points over a specified number of time periods. We'll learn about them in this file.
+
+2.  An *exponential moving average* calculates the moving average by giving more weight to recent observations in the data, thus placing more focus on recent changes in the data. Learn more by reading `03.Exponential-moving-averages-time-series.qmd`.
+
+First we'll go through an example with the moon data and then with the co2 data.
+
+## Simple moving averages
+
+### Example 1 - moon data
+
+#### Create time series object
+
+Our first task is to create a *time series object* using the `ts()` function which comes with base R.
+
+R needs to know that you want to treat a variable as a time series.
+
+In this case, our variable is Illumination. We're going to make it into a time series as a separate object outside of our data frame.
+
+```{r}
+moon_glow <- moon$Illumination
+
+moon_glow <- ts(moon_glow, #name the time series variable
+                frequency = 365, #tells R that this is a daily event (frequency = 12 = monthly, frequency 4 = quarterly, etc)
+                start = c(2023,1) #indicates that the data begin in Jan 2023
+                )
+```
+
+#### Calculate the simple moving average
+
+Now let's use the `rollmean()` function from the `zoo` package to caluclate a simple moving average.
+
+```{r}
+moon_sma1 <- rollmean(moon_glow, 
+                      #first argument is the time series object
+                      k = 30, #k specifies the integer width of the rolling window and must be an odd number. Let's start with 29 days
+                      fill = NA #fill pads the resulting series with NA values at the start and stop where the moving average cannot be computed
+                      )
+```
+
+#### Now plot the time series along with its moving average
+
+First, we need to add our moving average to our data frame for plotting. It should also be numeric and not a time-series object.
+
+```{r}
+moon$sma1 <- as.numeric(moon_sma1)
+```
+
+Now we can plot
+
+```{r}
+m_sma1 <-ggplot(moon, aes(x =date))+
+  geom_line(aes(y = Illumination), color = "blue", size = 1) + #original time series
+  geom_line(aes(y = sma1), color = "red", size = 1.2) + #moving average
+  labs(title = "SMA: k = 29 days",x = "Date", y = "Percent illumination")+
+  theme_bw()
+m_sma1
+```
+
+Here we see, as expected, that the moving average has smoothed out the variation and shows that, on average, the moon's illumination is about 50%.
+
+#### Tweak values of K to see the effect
+
+Let's tweak our values of k to see what effect they have on our plots.
+
+```{r}
+moon_sma2 <- rollmean(moon_glow, 
+                      k = 121, #try 121 days
+                      fill = NA)
+```
+
+And plot
+
+```{r}
+moon$sma2 <- as.numeric(moon_sma2)
+```
+
+Now we can plot
+
+```{r}
+m_sma2 <- ggplot(moon, aes(x =date))+
+  geom_line(aes(y = Illumination), color = "blue", size = 1) + 
+  geom_line(aes(y = sma2), color = "red", size = 1.2) + 
+  labs(title = "SMA: k = 121 days", x = "Date", y = "Percent illumination")+
+  theme_bw()
+m_sma2
+```
+
+Notice that, because we used a larger K, the moving average does not extend as far to the left or right because it used the first 121 days to get the first average and the last 121 days to get the last average for the series.
+
+Now let's make k quite a bit smaller.
+
+```{r}
+moon_sma3 <- rollmean(moon_glow, 
+                      k = 15, #try 15 days
+                      fill = NA)
+```
+
+And plot
+
+```{r}
+moon$sma3 <- as.numeric(moon_sma3)
+```
+
+Now we can plot
+
+```{r}
+m_sma3 <- ggplot(moon, aes(x =date))+
+  geom_line(aes(y = Illumination), color = "blue", size = 1) + 
+  geom_line(aes(y = sma3), color = "red", size = 1.2) + 
+  labs(title = "SMA: k = 15 days", x = "Date", y = "Percent illumination")+
+  theme_bw()
+m_sma3
+```
+
+Notice in this case that, because our moving average is based on only about half of a single moon phase, it doesn't do a very good job of tamping down variation in the oscilations of our data.
+
+Now look at all three plots together:
+
+```{r}
+grid.arrange(m_sma1, m_sma2, m_sma3, nrow = 1)
+```
+
+### Example 2 - Carbon dioxide data
+
+#### Create time series object
+
+As with the moon example, our first task is to create a *time series object* using the `ts()` function which comes with base R.
+
+R needs to know that you want to treat a variable as a time series.
+
+In this case, our variable is `carbon.dioxide.ppm`. We're going to make it into a time series as a separate object outside of our data frame.
+
+```{r}
+co2_ppm <- co2$carbon.dioxide.ppm
+
+co2_ppm <- ts(co2_ppm, #name the time series variable
+                frequency = 365, #tells R that this is a daily event (frequency = 12 = monthly, frequency 4 = quarterly, etc)
+                start = c(1974,5)
+                )
+```
+
+#### Calculate the simple moving average
+
+Now let's use the `rollmean()` function from the `zoo` package to caluclate a simple moving average.
+
+```{r}
+co2_sma1 <- rollmean(co2_ppm, #first argument is the time series object
+                      k = 365, #k specifies the integer width of the rolling window and must be an odd number. Let's start with 365 days
+                      fill = NA #fill pads the resulting series with NA values at the start and stop where the moving average cannot be computed
+                      )
+```
+
+#### Now plot the time series along with its moving average
+
+First, we need to add our moving average to our data frame for plotting. It should also be numeric and not a time-series object.
+
+```{r}
+co2$sma1 <- as.numeric(co2_sma1)
+```
+
+Now we can plot
+
+```{r}
+sma1_co2 <-ggplot(co2, aes(x =date))+
+  geom_line(aes(y = carbon.dioxide.ppm), color = "blue", size = 1) + #original time series
+  geom_line(aes(y = sma1), color = "red", size = 1.2) + #moving average
+  labs(title = "SMA: k = 365 days",x = "Date", y = "Atmos. CO2, ppm")+
+  theme_bw()
+sma1_co2
+```
+
+This gives us a nice plot showing basically the annual mean co2 in red with the seasonal variation in blue (the original).
+
+#### Tweak values of K to see the effect
+
+Let's tweak our values of k to see what effect they have on our plots. Now let's use the `rollmean()` function from the `zoo` package to caluclate a simple moving average.
+
+```{r}
+co2_sma2 <- rollmean(co2_ppm, 
+                      k = 31, #try one month rolling window 
+                      fill = NA)
+```
+
+add our moving average to our data frame for plotting.
+
+```{r}
+co2$sma2 <- as.numeric(co2_sma2)
+```
+
+Now we can plot
+
+```{r}
+sma2_co2 <-ggplot(co2, aes(x =date))+
+  geom_line(aes(y = carbon.dioxide.ppm), color = "blue", size = 1) + #original time series
+  geom_line(aes(y = sma2), color = "red", size = 1.2) + #moving average
+  labs(title = "SMA: k = 31 days",x = "Date", y = "Atmos. CO2, ppm")+
+  theme_bw()
+sma2_co2
+```
+
+Using a one month rolling window didn't do much to dampen the noise.
+
+What if we use a really long time, like 3 years (= 365\*3 = 1095 day moving window)?
+
+```{r}
+co2_sma3 <- rollmean(co2_ppm, 
+                      k = 1095, #try 3-year moving window
+                      fill = NA)
+```
+
+add our moving average to our data frame for plotting.
+
+```{r}
+co2$sma3 <- as.numeric(co2_sma3)
+```
+
+Now we can plot
+
+```{r}
+sma3_co2 <-ggplot(co2, aes(x =date))+
+  geom_line(aes(y = carbon.dioxide.ppm), color = "blue", size = 1) + #original time series
+  geom_line(aes(y = sma3), color = "red", size = 1.2) + #moving average
+  labs(title = "SMA: k = 1095 days",x = "Date", y = "Atmos. CO2, ppm")+
+  theme_bw()
+sma3_co2
+```
+
+Notice that our trend line is even smoother than with the one year moving average.
+
+Now get comparison of 3 plots
+
+```{r}
+grid.arrange(sma1_co2, sma2_co2, sma3_co2, ncol = 1)
+```
+
+So there is an art to this - you may need to experiment with different values of K to see what is the best way to represent your data.
+
+Next up is exponential moving averages. See `03.Exponential-moving-averages-time-series.qmd` for more.
