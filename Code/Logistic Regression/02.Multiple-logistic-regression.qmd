@@ -17,7 +17,7 @@ library(broom) #for tidying model results
 library(data.table) #for getting confidence intervals
 library(bestglm) #for best subsets with glm models
 library(MASS) #for step AIC
-library(glmulti) #for another approach to model selection
+#library(glmulti) #for another approach to model selection
 library(oddsratio) #converts log odds to odds ratios
 library(visreg) #for visualizing regression output
 library(here)
@@ -105,7 +105,9 @@ best_logistic$BestModel
 This model includes number of infloreseneces, average number of flowers per infloresence and distance to nearest flowering plant in the model.
 
 ### Best subsets using glmulti package
+
 We can also use the glmulti package to run all subset logistic regression
+
 ```{r}
 best_log2 <- glmulti(
   pollination_code ~ num_infloresences +
@@ -116,17 +118,22 @@ best_log2 <- glmulti(
 ```
 
 Now look at the 5 best models
+
 ```{r}
 best_log2@formulas
 ```
+
 Now look at the result for the best model
+
 ```{r}
 summary(best_log2@objects[[1]])
 summary(best_logistic$BestModel)
 ```
+
 And we get exactly the same result as we did with the other method.
 
 ### Stepwise logistic regression with stepAIC
+
 Like when we used the `stepAIC` function in multiple linear regression, we need to define the full model first
 
 ```{r}
@@ -135,20 +142,24 @@ summary(full_log)
 ```
 
 Now we begin the stepwise procedure
+
 ```{r}
 step_log <- stepAIC(full_log, trace = T)
 step_log$anova
 ```
+
 We get the same final model again!
 
 ### Choose, run, and interpret the best model
+
 ```{r}
 final_log_mod <- glm(pollination_code ~ num_infloresences + avg_flowers_per_inflor + dist_nearest_flowering_plant_m, family = binomial, data = plants)
 
 summary(final_log_mod)
 anova(final_log_mod)
 ```
-From our coefficients, we see that a 1 unit increase in the number of infloresences increases the log odds of a plant being visted by a pollinatory by 2.0391, and that a 1 unit increase in the average number of flowers per infloresence increases the log odds of a plant being visited by a pollinator by 3.2006. 
+
+From our coefficients, we see that a 1 unit increase in the number of infloresences increases the log odds of a plant being visted by a pollinatory by 2.0391, and that a 1 unit increase in the average number of flowers per infloresence increases the log odds of a plant being visited by a pollinator by 3.2006.
 
 Let's convert our log odds to odds ratios so we can interpret these results more easily.
 
@@ -161,9 +172,11 @@ or_glm(
     avg_flowers_per_inflor = 1, 
     dist_nearest_flowering_plant_m = 1))
 ```
+
 We see here that for every increase of 1 flower on the number of infloresences, the odds of a plant being visited by a pollinator increase 7.68 times! And, even more strikingly, the odds of a plant being visited by a pollinator go up 24.548 times for every 1 unit increase in the average number of flowers per infloresence! The effect of the distance to nearest flowering plant is less striking - for every 1 meter increase in the distance to the nearest flowering plant the odds of being visited by a pollinator go up 1.36 times.
 
 ### Plot the results
+
 Again, it is almost impossible to plot these results. However, we can look at a few things:
 
 ```{r}
@@ -172,14 +185,18 @@ coefs
 ```
 
 Now get confidence intervals
+
 ```{r}
 ci <- data.table(confint(final_log_mod), keep.rownames = "term")
 ```
+
 Now combine coefs and ci
+
 ```{r}
 cidf <- cbind(coefs, ci)
 cidf
 ```
+
 "term" shows up twice, so let's get rid of the second instance
 
 ```{r}
@@ -194,7 +211,9 @@ cidf <-cidf %>% rename(
 
 cidf$term <- as.factor(cidf$term)
 ```
+
 Nowe we can make a plot
+
 ```{r}
 ggplot(cidf, aes(estimate, term))+
   geom_vline(xintercept = 0, linetype = 2)+
@@ -202,9 +221,5 @@ ggplot(cidf, aes(estimate, term))+
   geom_errorbarh(aes(xmax = lower, xmin = upper), height = 0.2)+
   theme_bw()
 ```
+
 This plot shows us the confidence intervals for each term in our model - those that do not include zero for the estimate are statistically significant. You can see that, in this example, none of the 3 variables in our model have particularly strong effects. (Remember - the estimate is whether or not the plant is visited by a pollinator)
-
-
-
-
-
